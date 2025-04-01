@@ -1,0 +1,23 @@
+{
+    "name": "node-lua",
+    "version": "0.0.1",
+    "main": "./build/Release/addon.node",
+    "license": "GPL-3.0-only",
+    "exports": {
+        "import": "./index.js",
+        "types": "./index.d.ts",
+        "require": "./build/Release/addon.node"
+    },
+    "type": "module",
+    "scripts": {
+        "build": "node-gyp build"
+    },
+    "packageManager": "pnpm@9.12.3+sha512.cce0f9de9c5a7c95bef944169cc5dfe8741abfb145078c0d508b868056848a87c81e626246cb60967cbd7fd29a6c062ef73ff840d96b3c86c40ac92cf4a813ee",
+    "dependencies": {
+        "node-addon-api": "^8.3.0"
+    },
+    "types": "index.d.ts",
+    "devDependencies": {
+        "node-gyp": "^11.2.0"
+    }
+}
