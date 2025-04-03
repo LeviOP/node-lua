@@ -6,4 +6,6 @@ export class LuaState {
     doString(str: string): string | null;
     doFile(filename: string): string | null;
     newTable(): void;
+    call(nargs: number, nresults: number): null;
+    pushJSFunction(func: Function): void;
 }

@@ -1,4 +1,3 @@
-#include <map>
 #include <napi.h>
 
 extern "C" {
@@ -12,6 +11,11 @@ extern "C" {
 
 static const char JSStateRegistryKey = 'k';
 
+typedef struct {
+    lua_State* L;
+    std::vector<Napi::FunctionReference> functions;
+} StateWrapper;
+
 class LuaState : public Napi::ObjectWrap<LuaState> {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
@@ -21,6 +25,7 @@ public:
 private:
     lua_State *L;
     Napi::Value CallEx(int nargs, int nresults, bool catchError);
+    StateWrapper state;
 
     void Alloc(const Napi::CallbackInfo& info);
     Napi::Value Call(const Napi::CallbackInfo& info);
@@ -127,7 +132,8 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("pushString", &LuaState::PushString),
         InstanceMethod("doString", &LuaState::DoString),
         InstanceMethod("doFile", &LuaState::DoFile),
-        InstanceMethod("newTable", &LuaState::NewTable)
+        InstanceMethod("newTable", &LuaState::NewTable),
+        InstanceMethod("pushJSFunction", &LuaState::PushJSFunction)
     });
 
     Napi::FunctionReference* constructor = new Napi::FunctionReference();
@@ -151,37 +157,37 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     return exports;
 }
 
-void* get_js_state(lua_State* L) {
-    void* js_state_index;
+StateWrapper* get_js_state(lua_State* L) {
+    StateWrapper* state;
     lua_pushlightuserdata(L, (void*)&JSStateRegistryKey);
     lua_gettable(L, LUA_REGISTRYINDEX);
-    js_state_index = lua_touserdata(L, -1);
+    state = (StateWrapper*)lua_touserdata(L, -1);
     lua_pop(L,1);
-    return js_state_index;
+    return state;
 }
 
 int callback_function(lua_State* L) {
+    ulong* fidptr = (ulong*)lua_touserdata(L, 1);
+    StateWrapper* state = get_js_state(L);
+    Napi::FunctionReference& func = state->functions.at(*fidptr);
+    func.Call({});
     return 0;
 }
 
-// For some reason golua has a 
-
-typedef struct StateWrapper{
-    lua_State* L;
-} StateWrapper;
-
-// std::map<struct StateWrapper*, int> JSStateMap;
+// std::map<StateWrapper*, int> JSStateMap;
 
 LuaState::LuaState(const Napi::CallbackInfo& info) : Napi::ObjectWrap<LuaState>(info) {
     // Napi::Env env = info.Env();
     L = luaL_newstate();
 
-    StateWrapper wrappedState = {L};
+    state = {L, {}};
+    printf("here is the state pointer at the start: %p\n", &state);
 
     lua_pushlightuserdata(L, (void*)&JSStateRegistryKey);
-    lua_pushlightuserdata(L, (void*)&wrappedState);
+    lua_pushlightuserdata(L, (void*)&state);
     lua_settable(L, LUA_REGISTRYINDEX);
 
+    //clua_initstate
     luaL_newmetatable(L, MT_JSFUNCTION);
 
     lua_pushliteral(L, "__call");
@@ -216,8 +222,18 @@ void LuaState::PushString(const Napi::CallbackInfo& info) {
     lua_pushstring(L, info[0].As<Napi::String>().Utf8Value().c_str());
 }
 
-void LuaState::PushJSFunction(const Napi::CallbackInfo& info) {
+ulong register_function(StateWrapper* state, Napi::Function function) {
+    ulong index = state->functions.size();
+    state->functions.push_back(Napi::Persistent(function));
+    return index;
+}
 
+void LuaState::PushJSFunction(const Napi::CallbackInfo& info) {
+    ulong fid = register_function(&state, info[0].As<Napi::Function>());
+    ulong* fidptr = (ulong*)lua_newuserdata(L, sizeof(ulong));
+    *fidptr = fid;
+    luaL_getmetatable(L, MT_JSFUNCTION);
+    lua_setmetatable(L, -2);
 }
 
 Napi::Value LuaState::DoString(const Napi::CallbackInfo& info) {
@@ -245,7 +261,9 @@ Napi::Value LuaState::DoFile(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value LuaState::Call(const Napi::CallbackInfo& info) {
-
+    Napi::Env env = info.Env();
+    lua_call(L, info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::Number>().Int32Value());
+    return env.Null();
     // return CallEx(info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::Number>().Int32Value(), true);
 }
 
