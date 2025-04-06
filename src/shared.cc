@@ -1,145 +1,14 @@
-#include <cassert>
-#include <napi.h>
+#include "LuaState.h"
 
-extern "C" {
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
-}
+#if defined(LUAJIT_VERSION)
 
-#define NODELUA_DEFAULT_MSGHANDLER "nodelua_default_msghandler"
-#define MT_JSFUNCTION "nodelua.jsfunction"
+#endif
 
-static const char JSStateRegistryKey = 'k';
-
-typedef std::vector<Napi::FunctionReference>::size_type size_findex;
-
-template<typename T>
-T GetArg(const Napi::CallbackInfo& info, size_t index);
-
-template<>
-inline int GetArg<int>(const Napi::CallbackInfo& info, size_t index) {
-    int64_t raw = info[index].As<Napi::Number>().Int64Value();
-    assert(raw >= std::numeric_limits<int>::min() && raw <= std::numeric_limits<int>::max());
-    return static_cast<int>(raw);
-}
-
-template<>
-inline const char* GetArg<const char*>(const Napi::CallbackInfo& info, size_t index) {
-    static thread_local std::string temp;
-    temp = info[index].As<Napi::String>().Utf8Value();
-    return temp.c_str();
-}
-
-class LuaState : public Napi::ObjectWrap<LuaState> {
-public:
-    static Napi::Object Init(Napi::Env env, Napi::Object exports);
-    LuaState(const Napi::CallbackInfo& info);
-    ~LuaState();
-    std::vector<Napi::FunctionReference> functions;
-    std::vector<size_findex> freelist;
-    lua_State *L;
-
-private:
-    void push_js_closure(Napi::Function function, int n);
-    size_findex register_function(Napi::Function function);
-    void callback();
-
-    Napi::Value CallEx(int nargs, int nresults, bool catchError);
-
-    Napi::Value Call(const Napi::CallbackInfo& info);
-    Napi::Value CheckStack(const Napi::CallbackInfo& info);
-    void Close(const Napi::CallbackInfo& info);
-    void Concat(const Napi::CallbackInfo& info);
-    // void CPCall(const Napi::CallbackInfo& info);
-    void CreateTable(const Napi::CallbackInfo& info);
-    // void Dump(const Napi::CallbackInfo& info);
-    void Equal(const Napi::CallbackInfo& info);
-    void Error(const Napi::CallbackInfo& info);
-    void GC(const Napi::CallbackInfo& info);
-    void GetAllocF(const Napi::CallbackInfo& info);
-    void GetFEnv(const Napi::CallbackInfo& info);
-    void GetField(const Napi::CallbackInfo& info);
-    void GetGlobal(const Napi::CallbackInfo& info);
-    void GetMetatable(const Napi::CallbackInfo& info);
-    void GetTable(const Napi::CallbackInfo& info);
-    void GetTop(const Napi::CallbackInfo& info);
-    void Insert(const Napi::CallbackInfo& info);
-    void IsBoolean(const Napi::CallbackInfo& info);
-    void IsJSFunction(const Napi::CallbackInfo& info);
-    void IsFunction(const Napi::CallbackInfo& info);
-    void IsLightUserData(const Napi::CallbackInfo& info);
-    void IsNil(const Napi::CallbackInfo& info);
-    void IsNone(const Napi::CallbackInfo& info);
-    void IsNoneOrNil(const Napi::CallbackInfo& info);
-    Napi::Value IsNumber(const Napi::CallbackInfo& info);
-    void IsString(const Napi::CallbackInfo& info);
-    void IsTable(const Napi::CallbackInfo& info);
-    void IsThread(const Napi::CallbackInfo& info);
-    void IsUserData(const Napi::CallbackInfo& info);
-    void LessThan(const Napi::CallbackInfo& info);
-    void Load(const Napi::CallbackInfo& info);
-    void NewTable(const Napi::CallbackInfo& info);
-    void NewThread(const Napi::CallbackInfo& info);
-    void NewUserData(const Napi::CallbackInfo& info);
-    void Next(const Napi::CallbackInfo& info);
-    void PCall(const Napi::CallbackInfo& info);
-    void Pop(const Napi::CallbackInfo& info);
-    void PushBoolean(const Napi::CallbackInfo& info);
-    void PushJSClosure(const Napi::CallbackInfo& info);
-    void PushJSFunction(const Napi::CallbackInfo& info);
-    void PushFString(const Napi::CallbackInfo& info);
-    void PushInteger(const Napi::CallbackInfo& info);
-    void PushString(const Napi::CallbackInfo& info);
-    void PushThread(const Napi::CallbackInfo& info);
-    void PushValue(const Napi::CallbackInfo& info);
-    void PushVFString(const Napi::CallbackInfo& info);
-    void RawEqual(const Napi::CallbackInfo& info);
-    void RawGet(const Napi::CallbackInfo& info);
-    void RawGeti(const Napi::CallbackInfo& info);
-    void RawSet(const Napi::CallbackInfo& info);
-    void RawSeti(const Napi::CallbackInfo& info);
-    void Reader(const Napi::CallbackInfo& info);
-    void Register(const Napi::CallbackInfo& info);
-    void Remove(const Napi::CallbackInfo& info);
-    void Replace(const Napi::CallbackInfo& info);
-    void Resume(const Napi::CallbackInfo& info);
-    void SetAllocf(const Napi::CallbackInfo& info);
-    void SetFenv(const Napi::CallbackInfo& info);
-    void SetField(const Napi::CallbackInfo& info);
-    void SetGlobal(const Napi::CallbackInfo& info);
-    void SetMetatable(const Napi::CallbackInfo& info);
-    void SetTable(const Napi::CallbackInfo& info);
-    void SetTop(const Napi::CallbackInfo& info);
-    void Status(const Napi::CallbackInfo& info);
-    void ToBoolean(const Napi::CallbackInfo& info);
-    void ToJSFunction(const Napi::CallbackInfo& info);
-    Napi::Value ToInteger(const Napi::CallbackInfo& info);
-    void ToLString(const Napi::CallbackInfo& info);
-    void ToNumber(const Napi::CallbackInfo& info);
-    void ToPointer(const Napi::CallbackInfo& info);
-    void ToString(const Napi::CallbackInfo& info);
-    void ToThread(const Napi::CallbackInfo& info);
-    void ToUserData(const Napi::CallbackInfo& info);
-    void Type(const Napi::CallbackInfo& info);
-    void TypeName(const Napi::CallbackInfo& info);
-    void XMove(const Napi::CallbackInfo& info);
-    void Yield(const Napi::CallbackInfo& info);
-    void GetHook(const Napi::CallbackInfo& info);
-    void GetHookCount(const Napi::CallbackInfo& info);
-    void GetHookMask(const Napi::CallbackInfo& info);
-    void GetInfo(const Napi::CallbackInfo& info);
-    void GetLocal(const Napi::CallbackInfo& info);
-    void GetStack(const Napi::CallbackInfo& info);
-    void GetUpValue(const Napi::CallbackInfo& info);
-    void SetHook(const Napi::CallbackInfo& info);
-    void SetLocal(const Napi::CallbackInfo& info);
-    void SetUpValue(const Napi::CallbackInfo& info);
-
-    Napi::Value DoString(const Napi::CallbackInfo& info);
-    Napi::Value DoFile(const Napi::CallbackInfo& info);
-    void OpenLibs(const Napi::CallbackInfo& info);
-};
+#if LUA_VERSION_NUM == 501
+#include "versions/51.cc"
+#elif LUA_VERSION_NUM == 504
+#include "versions/54.cc"
+#endif
 
 Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     // This method is used to hook the accessor and method callbacks
@@ -196,6 +65,82 @@ void LuaState::Concat(const Napi::CallbackInfo& info) {
 
 void LuaState::CreateTable(const Napi::CallbackInfo& info) {
     lua_createtable(L, GetArg<int>(info, 0), GetArg<int>(info, 1));
+}
+
+void LuaState::Error(const Napi::CallbackInfo& info) {
+    lua_error(L);
+}
+
+Napi::Value LuaState::GetMetatable(const Napi::CallbackInfo& info) {
+    return Napi::Boolean::New(info.Env(), lua_getmetatable(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::GetTop(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), lua_gettop(L));
+}
+
+void LuaState::Insert(const Napi::CallbackInfo& info) {
+    lua_insert(L, GetArg<int>(info, 0));
+}
+
+Napi::Value LuaState::IsBoolean(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_isboolean(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsJSFunction(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_iscfunction(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsFunction(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_isfunction(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsLightUserdata(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_islightuserdata(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsNil(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_isnil(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsNone(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_isnone(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsNoneOrNil(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_isnoneornil(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsNumber(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_isnumber(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsString(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_isstring(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsTable(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_istable(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsThread(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_isthread(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value LuaState::IsUserdata(const Napi::CallbackInfo &info) {
+    return Napi::Boolean::New(info.Env(), lua_isuserdata(L, GetArg<int>(info, 0)));
+}
+
+void LuaState::NewTable(const Napi::CallbackInfo& info) {
+    lua_newtable(L);
+}
+
+void LuaState::Next(const Napi::CallbackInfo &info) {
+    lua_next(L, GetArg<int>(info, 0));
+}
+
+void LuaState::Pop(const Napi::CallbackInfo &info) {
+    lua_pop(L, GetArg<int>(info, 0));
 }
 
 LuaState* get_js_state(lua_State* L) {
@@ -258,18 +203,6 @@ void LuaState::SetField(const Napi::CallbackInfo& info) {
     lua_setfield(L, GetArg<int>(info, 0), GetArg<const char*>(info, 1));
 }
 
-void LuaState::GetField(const Napi::CallbackInfo& info) {
-    lua_getfield(L, GetArg<int>(info, 0), GetArg<const char*>(info, 1));
-}
-
-void LuaState::GetGlobal(const Napi::CallbackInfo& info) {
-    lua_getglobal(L, GetArg<const char*>(info, 0));
-}
-
-void LuaState::NewTable(const Napi::CallbackInfo& info) {
-    lua_newtable(L);
-}
-
 void LuaState::PushString(const Napi::CallbackInfo& info) {
     lua_pushstring(L, GetArg<const char*>(info, 0));
 }
@@ -277,10 +210,6 @@ void LuaState::PushString(const Napi::CallbackInfo& info) {
 Napi::Value LuaState::ToInteger(const Napi::CallbackInfo& info) {
     int value = lua_tointeger(L, GetArg<int>(info, 0));
     return Napi::Number::New(info.Env(), value);
-}
-
-Napi::Value LuaState::IsNumber(const Napi::CallbackInfo& info) {
-    return Napi::Boolean::New(info.Env(), lua_isnumber(L, GetArg<int>(info, 0)));
 }
 
 void LuaState::PushInteger(const Napi::CallbackInfo& info) {
