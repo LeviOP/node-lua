@@ -11,25 +11,26 @@ extern "C" {
 
 static const char JSStateRegistryKey = 'k';
 
-typedef struct {
-    lua_State* L;
-    std::vector<Napi::FunctionReference> functions;
-} StateWrapper;
+typedef std::vector<Napi::FunctionReference>::size_type size_findex;
 
 class LuaState : public Napi::ObjectWrap<LuaState> {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
     LuaState(const Napi::CallbackInfo& info);
     ~LuaState();
+    std::vector<Napi::FunctionReference> functions;
+    std::vector<size_findex> freelist;
+    lua_State *L;
 
 private:
-    lua_State *L;
-    Napi::Value CallEx(int nargs, int nresults, bool catchError);
-    StateWrapper state;
+    void push_js_closure(Napi::Function function, int n);
+    size_findex register_function(Napi::Function function);
+    void callback();
 
-    void Alloc(const Napi::CallbackInfo& info);
+    Napi::Value CallEx(int nargs, int nresults, bool catchError);
+
     Napi::Value Call(const Napi::CallbackInfo& info);
-    void CheckStack(const Napi::CallbackInfo& info);
+    Napi::Value CheckStack(const Napi::CallbackInfo& info);
     void Close(const Napi::CallbackInfo& info);
     void Concat(const Napi::CallbackInfo& info);
     void CPCall(const Napi::CallbackInfo& info);
@@ -53,7 +54,7 @@ private:
     void IsNil(const Napi::CallbackInfo& info);
     void IsNone(const Napi::CallbackInfo& info);
     void IsNoneOrNil(const Napi::CallbackInfo& info);
-    void IsNumber(const Napi::CallbackInfo& info);
+    Napi::Value IsNumber(const Napi::CallbackInfo& info);
     void IsString(const Napi::CallbackInfo& info);
     void IsTable(const Napi::CallbackInfo& info);
     void IsThread(const Napi::CallbackInfo& info);
@@ -67,7 +68,7 @@ private:
     void PCall(const Napi::CallbackInfo& info);
     void Pop(const Napi::CallbackInfo& info);
     void PushBoolean(const Napi::CallbackInfo& info);
-    void PushClosure(const Napi::CallbackInfo& info);
+    void PushJSClosure(const Napi::CallbackInfo& info);
     void PushJSFunction(const Napi::CallbackInfo& info);
     void PushFString(const Napi::CallbackInfo& info);
     void PushInteger(const Napi::CallbackInfo& info);
@@ -95,7 +96,7 @@ private:
     void Status(const Napi::CallbackInfo& info);
     void ToBoolean(const Napi::CallbackInfo& info);
     void ToJSFunction(const Napi::CallbackInfo& info);
-    void ToInteger(const Napi::CallbackInfo& info);
+    Napi::Value ToInteger(const Napi::CallbackInfo& info);
     void ToLString(const Napi::CallbackInfo& info);
     void ToNumber(const Napi::CallbackInfo& info);
     void ToPointer(const Napi::CallbackInfo& info);
@@ -126,6 +127,8 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     // This method is used to hook the accessor and method callbacks
     Napi::Function func = DefineClass(env, "LuaState", {
         InstanceMethod("call", &LuaState::Call),
+        InstanceMethod("createTable", &LuaState::CreateTable),
+        InstanceMethod("setField", &LuaState::SetField),
         InstanceMethod("getField", &LuaState::GetField),
         InstanceMethod("getGlobal", &LuaState::GetGlobal),
         InstanceMethod("openLibs", &LuaState::OpenLibs),
@@ -133,7 +136,11 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("doString", &LuaState::DoString),
         InstanceMethod("doFile", &LuaState::DoFile),
         InstanceMethod("newTable", &LuaState::NewTable),
-        InstanceMethod("pushJSFunction", &LuaState::PushJSFunction)
+        InstanceMethod("pushJSFunction", &LuaState::PushJSFunction),
+        InstanceMethod("pushInteger", &LuaState::PushInteger),
+        InstanceMethod("toInteger", &LuaState::ToInteger),
+        InstanceMethod("isNumber", &LuaState::IsNumber),
+        InstanceMethod("register", &LuaState::Register)
     });
 
     Napi::FunctionReference* constructor = new Napi::FunctionReference();
@@ -157,43 +164,62 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     return exports;
 }
 
-StateWrapper* get_js_state(lua_State* L) {
-    StateWrapper* state;
+Napi::Value LuaState::CheckStack(const Napi::CallbackInfo& info) {
+    return Napi::Boolean::New(info.Env(), lua_checkstack(L, info[0].As<Napi::Number>().Int32Value()));
+}
+
+void LuaState::Close(const Napi::CallbackInfo& info) {
+    lua_close(L);
+}
+
+void LuaState::Concat(const Napi::CallbackInfo& info) {
+    lua_concat(L, info[0].As<Napi::Number>().Int32Value());
+}
+
+LuaState* get_js_state(lua_State* L) {
     lua_pushlightuserdata(L, (void*)&JSStateRegistryKey);
     lua_gettable(L, LUA_REGISTRYINDEX);
-    state = (StateWrapper*)lua_touserdata(L, -1);
-    lua_pop(L,1);
+    LuaState* state = (LuaState*)lua_touserdata(L, -1);
+    lua_pop(L, 1);
     return state;
 }
 
 int callback_function(lua_State* L) {
-    ulong* fidptr = (ulong*)lua_touserdata(L, 1);
-    StateWrapper* state = get_js_state(L);
+    size_findex* fidptr = (size_findex*)lua_touserdata(L, lua_upvalueindex(1));
+    LuaState* state = get_js_state(L);
     Napi::FunctionReference& func = state->functions.at(*fidptr);
-    func.Call({});
+    int args = func.Call({ state->Value() }).As<Napi::Number>().Int32Value();
+    return args;
+}
+
+int gchook(lua_State* L) {
+    size_findex fid = *(size_findex*)lua_touserdata(L, -1);
+    LuaState* state = get_js_state(L);
+    Napi::FunctionReference& func = state->functions.at(fid);
+    func.Unref();
+    state->freelist.push_back(fid);
     return 0;
 }
 
-// std::map<StateWrapper*, int> JSStateMap;
-
 LuaState::LuaState(const Napi::CallbackInfo& info) : Napi::ObjectWrap<LuaState>(info) {
-    // Napi::Env env = info.Env();
     L = luaL_newstate();
 
-    state = {L, {}};
-    printf("here is the state pointer at the start: %p\n", &state);
-
     lua_pushlightuserdata(L, (void*)&JSStateRegistryKey);
-    lua_pushlightuserdata(L, (void*)&state);
+    lua_pushlightuserdata(L, (void*)this);
     lua_settable(L, LUA_REGISTRYINDEX);
 
     //clua_initstate
     luaL_newmetatable(L, MT_JSFUNCTION);
 
-    lua_pushliteral(L, "__call");
-    lua_pushcfunction(L, &callback_function);
-    lua_settable(L,-3);
+    // lua_pushliteral(L, "__call");
+    // lua_pushcfunction(L, &callback_function);
+    // lua_settable(L,-3);
 
+    lua_pushliteral(L, "__gc");
+    lua_pushcfunction(L, &gchook);
+    lua_settable(L, -3);
+
+    lua_pop(L, 1);
 }
 
 LuaState::~LuaState() {
@@ -202,8 +228,16 @@ LuaState::~LuaState() {
     }
 }
 
+void LuaState::CreateTable(const Napi::CallbackInfo& info) {
+    lua_createtable(L, info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::Number>().Int32Value());
+}
+
 void LuaState::OpenLibs(const Napi::CallbackInfo& info) {
     luaL_openlibs(L);
+}
+
+void LuaState::SetField(const Napi::CallbackInfo& info) {
+    lua_setfield(L, info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::String>().Utf8Value().c_str());
 }
 
 void LuaState::GetField(const Napi::CallbackInfo& info) {
@@ -222,18 +256,52 @@ void LuaState::PushString(const Napi::CallbackInfo& info) {
     lua_pushstring(L, info[0].As<Napi::String>().Utf8Value().c_str());
 }
 
-ulong register_function(StateWrapper* state, Napi::Function function) {
-    ulong index = state->functions.size();
-    state->functions.push_back(Napi::Persistent(function));
+Napi::Value LuaState::ToInteger(const Napi::CallbackInfo& info) {
+    int value = lua_tointeger(L, info[0].As<Napi::Number>().Int32Value());
+    return Napi::Number::New(info.Env(), value);
+}
+
+Napi::Value LuaState::IsNumber(const Napi::CallbackInfo& info) {
+    return Napi::Boolean::New(info.Env(), lua_isnumber(L, info[0].As<Napi::Number>().Int32Value()));
+}
+
+void LuaState::PushInteger(const Napi::CallbackInfo& info) {
+    lua_pushinteger(L, info[0].As<Napi::Number>().Int32Value());
+}
+
+size_findex LuaState::register_function(Napi::Function function) {
+    size_findex index;
+    if (freelist.size() > 0) {
+        index = freelist.back();
+        freelist.pop_back();
+        functions.at(index) = Napi::Persistent(function);
+    } else {
+        index = functions.size();
+        functions.push_back(Napi::Persistent(function));
+    }
     return index;
 }
 
-void LuaState::PushJSFunction(const Napi::CallbackInfo& info) {
-    ulong fid = register_function(&state, info[0].As<Napi::Function>());
-    ulong* fidptr = (ulong*)lua_newuserdata(L, sizeof(ulong));
-    *fidptr = fid;
+void LuaState::push_js_closure(Napi::Function function, int n) {
+    size_findex* fidptr = (size_findex*)lua_newuserdata(L, sizeof(size_findex));
+    *fidptr = register_function(function);
     luaL_getmetatable(L, MT_JSFUNCTION);
     lua_setmetatable(L, -2);
+    if (n > 0) lua_insert(L, -n-1);
+    lua_pushcclosure(L, callback_function, 1 + n);
+}
+
+void LuaState::Register(const Napi::CallbackInfo& info) {
+    push_js_closure(info[1].As<Napi::Function>(), 0);
+    lua_setglobal(L, info[0].As<Napi::String>().Utf8Value().c_str());
+}
+
+void LuaState::PushJSFunction(const Napi::CallbackInfo& info) {
+    push_js_closure(info[0].As<Napi::Function>(), 0);
+}
+
+void LuaState::PushJSClosure(const Napi::CallbackInfo& info) {
+    push_js_closure(info[0].As<Napi::Function>(), info[1].As<Napi::Number>().Int32Value());
 }
 
 Napi::Value LuaState::DoString(const Napi::CallbackInfo& info) {
@@ -267,19 +335,19 @@ Napi::Value LuaState::Call(const Napi::CallbackInfo& info) {
     // return CallEx(info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::Number>().Int32Value(), true);
 }
 
-Napi::Value LuaState::CallEx(int nargs, int nresults, bool catchError) {
-    // lua_getglobal(L, NODELUA_DEFAULT_MSGHANDLER);
-    // int erridx = lua_gettop(L) - nargs - 1;
-    // lua_insert(L, erridx);
-    // int result = lua_pcall(L, nargs, nresults, erridx);
-    // lua_remove(L, erridx);
-    // if (result != 0) {
-    //
-    // }
-}
+// Napi::Value LuaState::CallEx(int nargs, int nresults, bool catchError) {
+//     lua_getglobal(L, NODELUA_DEFAULT_MSGHANDLER);
+//     int erridx = lua_gettop(L) - nargs - 1;
+//     lua_insert(L, erridx);
+//     int result = lua_pcall(L, nargs, nresults, erridx);
+//     lua_remove(L, erridx);
+//     if (result != 0) {
+//
+//     }
+// }
 
 // Initialize native add-on
-Napi::Object Init (Napi::Env env, Napi::Object exports) {
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
     LuaState::Init(env, exports);
     return exports;
 }
