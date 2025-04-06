@@ -2,7 +2,7 @@
     "name": "node-lua",
     "version": "0.0.1",
     "main": "./build/Release/addon.node",
-    "license": "GPL-3.0-only",
+    "license": "MIT",
     "exports": {
         "import": "./index.js",
         "types": "./index.d.ts",
