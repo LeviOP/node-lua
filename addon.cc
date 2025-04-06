@@ -1,3 +1,4 @@
+#include <cassert>
 #include <napi.h>
 
 extern "C" {
@@ -12,6 +13,23 @@ extern "C" {
 static const char JSStateRegistryKey = 'k';
 
 typedef std::vector<Napi::FunctionReference>::size_type size_findex;
+
+template<typename T>
+T GetArg(const Napi::CallbackInfo& info, size_t index);
+
+template<>
+inline int GetArg<int>(const Napi::CallbackInfo& info, size_t index) {
+    int64_t raw = info[index].As<Napi::Number>().Int64Value();
+    assert(raw >= std::numeric_limits<int>::min() && raw <= std::numeric_limits<int>::max());
+    return static_cast<int>(raw);
+}
+
+template<>
+inline const char* GetArg<const char*>(const Napi::CallbackInfo& info, size_t index) {
+    static thread_local std::string temp;
+    temp = info[index].As<Napi::String>().Utf8Value();
+    return temp.c_str();
+}
 
 class LuaState : public Napi::ObjectWrap<LuaState> {
 public:
@@ -33,9 +51,9 @@ private:
     Napi::Value CheckStack(const Napi::CallbackInfo& info);
     void Close(const Napi::CallbackInfo& info);
     void Concat(const Napi::CallbackInfo& info);
-    void CPCall(const Napi::CallbackInfo& info);
+    // void CPCall(const Napi::CallbackInfo& info);
     void CreateTable(const Napi::CallbackInfo& info);
-    void Dump(const Napi::CallbackInfo& info);
+    // void Dump(const Napi::CallbackInfo& info);
     void Equal(const Napi::CallbackInfo& info);
     void Error(const Napi::CallbackInfo& info);
     void GC(const Napi::CallbackInfo& info);
@@ -165,7 +183,7 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
 }
 
 Napi::Value LuaState::CheckStack(const Napi::CallbackInfo& info) {
-    return Napi::Boolean::New(info.Env(), lua_checkstack(L, info[0].As<Napi::Number>().Int32Value()));
+    return Napi::Boolean::New(info.Env(), lua_checkstack(L, GetArg<int>(info, 0)));
 }
 
 void LuaState::Close(const Napi::CallbackInfo& info) {
@@ -173,7 +191,11 @@ void LuaState::Close(const Napi::CallbackInfo& info) {
 }
 
 void LuaState::Concat(const Napi::CallbackInfo& info) {
-    lua_concat(L, info[0].As<Napi::Number>().Int32Value());
+    lua_concat(L, GetArg<int>(info, 0));
+}
+
+void LuaState::CreateTable(const Napi::CallbackInfo& info) {
+    lua_createtable(L, GetArg<int>(info, 0), GetArg<int>(info, 1));
 }
 
 LuaState* get_js_state(lua_State* L) {
@@ -228,24 +250,20 @@ LuaState::~LuaState() {
     }
 }
 
-void LuaState::CreateTable(const Napi::CallbackInfo& info) {
-    lua_createtable(L, info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::Number>().Int32Value());
-}
-
 void LuaState::OpenLibs(const Napi::CallbackInfo& info) {
     luaL_openlibs(L);
 }
 
 void LuaState::SetField(const Napi::CallbackInfo& info) {
-    lua_setfield(L, info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::String>().Utf8Value().c_str());
+    lua_setfield(L, GetArg<int>(info, 0), GetArg<const char*>(info, 1));
 }
 
 void LuaState::GetField(const Napi::CallbackInfo& info) {
-    lua_getfield(L, info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::String>().Utf8Value().c_str());
+    lua_getfield(L, GetArg<int>(info, 0), GetArg<const char*>(info, 1));
 }
 
 void LuaState::GetGlobal(const Napi::CallbackInfo& info) {
-    lua_getglobal(L, info[0].As<Napi::String>().Utf8Value().c_str());
+    lua_getglobal(L, GetArg<const char*>(info, 0));
 }
 
 void LuaState::NewTable(const Napi::CallbackInfo& info) {
@@ -253,20 +271,20 @@ void LuaState::NewTable(const Napi::CallbackInfo& info) {
 }
 
 void LuaState::PushString(const Napi::CallbackInfo& info) {
-    lua_pushstring(L, info[0].As<Napi::String>().Utf8Value().c_str());
+    lua_pushstring(L, GetArg<const char*>(info, 0));
 }
 
 Napi::Value LuaState::ToInteger(const Napi::CallbackInfo& info) {
-    int value = lua_tointeger(L, info[0].As<Napi::Number>().Int32Value());
+    int value = lua_tointeger(L, GetArg<int>(info, 0));
     return Napi::Number::New(info.Env(), value);
 }
 
 Napi::Value LuaState::IsNumber(const Napi::CallbackInfo& info) {
-    return Napi::Boolean::New(info.Env(), lua_isnumber(L, info[0].As<Napi::Number>().Int32Value()));
+    return Napi::Boolean::New(info.Env(), lua_isnumber(L, GetArg<int>(info, 0)));
 }
 
 void LuaState::PushInteger(const Napi::CallbackInfo& info) {
-    lua_pushinteger(L, info[0].As<Napi::Number>().Int32Value());
+    lua_pushinteger(L, GetArg<int>(info, 0));
 }
 
 size_findex LuaState::register_function(Napi::Function function) {
@@ -293,7 +311,7 @@ void LuaState::push_js_closure(Napi::Function function, int n) {
 
 void LuaState::Register(const Napi::CallbackInfo& info) {
     push_js_closure(info[1].As<Napi::Function>(), 0);
-    lua_setglobal(L, info[0].As<Napi::String>().Utf8Value().c_str());
+    lua_setglobal(L, GetArg<const char*>(info, 0));
 }
 
 void LuaState::PushJSFunction(const Napi::CallbackInfo& info) {
@@ -301,13 +319,13 @@ void LuaState::PushJSFunction(const Napi::CallbackInfo& info) {
 }
 
 void LuaState::PushJSClosure(const Napi::CallbackInfo& info) {
-    push_js_closure(info[0].As<Napi::Function>(), info[1].As<Napi::Number>().Int32Value());
+    push_js_closure(info[0].As<Napi::Function>(), GetArg<int>(info, 1));
 }
 
 Napi::Value LuaState::DoString(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     int r;
-    if (r = luaL_loadstring(L, info[0].As<Napi::String>().Utf8Value().c_str()), r != 0) {
+    if (r = luaL_loadstring(L, GetArg<const char*>(info, 0)), r != 0) {
         return Napi::String::New(env, lua_tostring(L, -1));
     }
     if (r = lua_pcall(L, 0, LUA_MULTRET, 0), r != 0) {
@@ -319,7 +337,7 @@ Napi::Value LuaState::DoString(const Napi::CallbackInfo& info) {
 Napi::Value LuaState::DoFile(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     int r;
-    if (r = luaL_loadfile(L, info[0].As<Napi::String>().Utf8Value().c_str()), r != 0) {
+    if (r = luaL_loadfile(L, GetArg<const char*>(info, 0)), r != 0) {
         return Napi::String::New(env, lua_tostring(L, -1));
     }
     if (r = lua_pcall(L, 0, LUA_MULTRET, 0), r != 0) {
@@ -330,7 +348,7 @@ Napi::Value LuaState::DoFile(const Napi::CallbackInfo& info) {
 
 Napi::Value LuaState::Call(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    lua_call(L, info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::Number>().Int32Value());
+    lua_call(L, GetArg<int>(info, 0), GetArg<int>(info, 1));
     return env.Null();
     // return CallEx(info[0].As<Napi::Number>().Int32Value(), info[1].As<Napi::Number>().Int32Value(), true);
 }
