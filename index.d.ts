@@ -10,5 +10,6 @@ export class LuaState {
     newTable(): void;
     call(nargs: number, nresults: number): null;
     pushJSFunction(func: (state: LuaState) => number): void;
+    toJSFunction(index: number): (state: LuaState) => number;
     register(name: string, func: (state: LuaState) => number): void;
 }

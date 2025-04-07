@@ -10,137 +10,114 @@
 #include "versions/54.cc"
 #endif
 
-Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
-    // This method is used to hook the accessor and method callbacks
-    Napi::Function func = DefineClass(env, "LuaState", {
-        InstanceMethod("call", &LuaState::Call),
-        InstanceMethod("createTable", &LuaState::CreateTable),
-        InstanceMethod("setField", &LuaState::SetField),
-        InstanceMethod("getField", &LuaState::GetField),
-        InstanceMethod("getGlobal", &LuaState::GetGlobal),
-        InstanceMethod("openLibs", &LuaState::OpenLibs),
-        InstanceMethod("pushString", &LuaState::PushString),
-        InstanceMethod("doString", &LuaState::DoString),
-        InstanceMethod("doFile", &LuaState::DoFile),
-        InstanceMethod("newTable", &LuaState::NewTable),
-        InstanceMethod("pushJSFunction", &LuaState::PushJSFunction),
-        InstanceMethod("pushInteger", &LuaState::PushInteger),
-        InstanceMethod("toInteger", &LuaState::ToInteger),
-        InstanceMethod("isNumber", &LuaState::IsNumber),
-        InstanceMethod("register", &LuaState::Register)
-    });
 
-    Napi::FunctionReference* constructor = new Napi::FunctionReference();
-
-    // Create a persistent reference to the class constructor. This will allow
-    // a function called on a class prototype and a function
-    // called on instance of a class to be distinguished from each other.
-    *constructor = Napi::Persistent(func);
-    exports.Set("LuaState", func);
-
-    // Store the constructor as the add-on instance data. This will allow this
-    // add-on to support multiple instances of itself running on multiple worker
-    // threads, as well as multiple instances of itself running in different
-    // contexts on the same thread.
-    //
-    // By default, the value set on the environment here will be destroyed when
-    // the add-on is unloaded using the `delete` operator, but it is also
-    // possible to supply a custom deleter.
-    env.SetInstanceData<Napi::FunctionReference>(constructor);
-
-    return exports;
-}
-
-Napi::Value LuaState::CheckStack(const Napi::CallbackInfo& info) {
+Napi::Value Shared::CheckStack(const Napi::CallbackInfo& info) {
     return Napi::Boolean::New(info.Env(), lua_checkstack(L, GetArg<int>(info, 0)));
 }
 
-void LuaState::Close(const Napi::CallbackInfo& info) {
+void Shared::Close(const Napi::CallbackInfo& info) {
     lua_close(L);
 }
 
-void LuaState::Concat(const Napi::CallbackInfo& info) {
+void Shared::Concat(const Napi::CallbackInfo& info) {
     lua_concat(L, GetArg<int>(info, 0));
 }
 
-void LuaState::CreateTable(const Napi::CallbackInfo& info) {
+void Shared::CreateTable(const Napi::CallbackInfo& info) {
     lua_createtable(L, GetArg<int>(info, 0), GetArg<int>(info, 1));
 }
 
-void LuaState::Error(const Napi::CallbackInfo& info) {
+void Shared::Error(const Napi::CallbackInfo& info) {
     lua_error(L);
 }
 
-Napi::Value LuaState::GetMetatable(const Napi::CallbackInfo& info) {
+Napi::Value Shared::GetMetatable(const Napi::CallbackInfo& info) {
     return Napi::Boolean::New(info.Env(), lua_getmetatable(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::GetTop(const Napi::CallbackInfo& info) {
+Napi::Value Shared::GetTop(const Napi::CallbackInfo& info) {
     return Napi::Number::New(info.Env(), lua_gettop(L));
 }
 
-void LuaState::Insert(const Napi::CallbackInfo& info) {
+void Shared::Insert(const Napi::CallbackInfo& info) {
     lua_insert(L, GetArg<int>(info, 0));
 }
 
-Napi::Value LuaState::IsBoolean(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsBoolean(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_isboolean(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsJSFunction(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsJSFunction(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_iscfunction(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsFunction(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsFunction(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_isfunction(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsLightUserdata(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsLightUserdata(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_islightuserdata(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsNil(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsNil(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_isnil(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsNone(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsNone(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_isnone(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsNoneOrNil(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsNoneOrNil(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_isnoneornil(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsNumber(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsNumber(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_isnumber(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsString(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsString(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_isstring(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsTable(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsTable(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_istable(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsThread(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsThread(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_isthread(L, GetArg<int>(info, 0)));
 }
 
-Napi::Value LuaState::IsUserdata(const Napi::CallbackInfo &info) {
+Napi::Value Shared::IsUserdata(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), lua_isuserdata(L, GetArg<int>(info, 0)));
 }
 
-void LuaState::NewTable(const Napi::CallbackInfo& info) {
+void Shared::NewTable(const Napi::CallbackInfo& info) {
     lua_newtable(L);
 }
 
-void LuaState::Next(const Napi::CallbackInfo &info) {
+void Shared::Next(const Napi::CallbackInfo &info) {
     lua_next(L, GetArg<int>(info, 0));
 }
 
-void LuaState::Pop(const Napi::CallbackInfo &info) {
+void Shared::Pop(const Napi::CallbackInfo &info) {
     lua_pop(L, GetArg<int>(info, 0));
+}
+
+void Shared::PushBoolean(const Napi::CallbackInfo &info) {
+    lua_pushboolean(L, GetArg<int>(info, 0));
+}
+
+size_findex Shared::register_function(Napi::Function function) {
+    size_findex index;
+    if (freelist.size() > 0) {
+        index = freelist.back();
+        freelist.pop_back();
+        functions.at(index) = Napi::Persistent(function);
+    } else {
+        index = functions.size();
+        functions.push_back(Napi::Persistent(function));
+    }
+    return index;
 }
 
 LuaState* get_js_state(lua_State* L) {
@@ -159,9 +136,128 @@ int callback_function(lua_State* L) {
     return args;
 }
 
+
+void Shared::push_js_closure(Napi::Function function, int n) {
+    size_findex* fidptr = (size_findex*)lua_newuserdata(L, sizeof(size_findex));
+    *fidptr = register_function(function);
+    luaL_getmetatable(L, MT_JSFUNCTION);
+    lua_setmetatable(L, -2);
+    if (n > 0) lua_insert(L, -n-1);
+    lua_pushcclosure(L, callback_function, 1 + n);
+}
+
+void Shared::PushJSClosure(const Napi::CallbackInfo& info) {
+    push_js_closure(info[0].As<Napi::Function>(), GetArg<int>(info, 1));
+}
+
+void Shared::PushJSFunction(const Napi::CallbackInfo& info) {
+    push_js_closure(info[0].As<Napi::Function>(), 0);
+}
+
+void Shared::PushInteger(const Napi::CallbackInfo& info) {
+    lua_pushinteger(L, GetArg<int>(info, 0));
+}
+
+void Shared::PushString(const Napi::CallbackInfo& info) {
+    lua_pushstring(L, GetArg<const char*>(info, 0));
+}
+
+void Shared::PushValue(const Napi::CallbackInfo& info) {
+    lua_pushvalue(L, GetArg<int>(info, 0));
+}
+
+Napi::Value Shared::RawEqual(const Napi::CallbackInfo& info) {
+    return Napi::Boolean::New(info.Env(), lua_rawequal(L, GetArg<int>(info, 0), GetArg<int>(info, 1)));
+}
+
+void Shared::RawSet(const Napi::CallbackInfo& info) {
+    lua_rawset(L, GetArg<int>(info, 0));
+}
+
+void Shared::Register(const Napi::CallbackInfo& info) {
+    push_js_closure(info[1].As<Napi::Function>(), 0);
+    lua_setglobal(L, GetArg<const char*>(info, 0));
+}
+
+void Shared::Remove(const Napi::CallbackInfo& info) {
+    lua_remove(L, GetArg<int>(info, 0));
+}
+
+void Shared::Replace(const Napi::CallbackInfo& info) {
+    lua_replace(L, GetArg<int>(info, 0));
+}
+
+void Shared::Resume(const Napi::CallbackInfo& info) {
+    lua_resume(L, GetArg<int>(info, 0));
+}
+
+void Shared::SetField(const Napi::CallbackInfo& info) {
+    lua_setfield(L, GetArg<int>(info, 0), GetArg<const char*>(info, 1));
+}
+
+void Shared::SetGlobal(const Napi::CallbackInfo& info) {
+    lua_setglobal(L, GetArg<const char*>(info, 0));
+}
+
+void Shared::SetMetatable(const Napi::CallbackInfo& info) {
+    lua_setmetatable(L, GetArg<int>(info, 0));
+}
+
+void Shared::SetTable(const Napi::CallbackInfo& info) {
+    lua_settable(L, GetArg<int>(info, 0));
+}
+
+void Shared::SetTop(const Napi::CallbackInfo& info) {
+    lua_settop(L, GetArg<int>(info, 0));
+}
+
+Napi::Value Shared::Status(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), lua_status(L));
+}
+
+Napi::Value Shared::ToBoolean(const Napi::CallbackInfo& info) {
+    return Napi::Boolean::New(info.Env(), lua_toboolean(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value Shared::ToJSFunction(const Napi::CallbackInfo& info) {
+    if(!lua_iscfunction(L, -1)) return info.Env().Null();
+    lua_getupvalue(L, GetArg<int>(info, 0), 1);
+    size_findex* fidptr = (size_findex*)lua_touserdata(L, -1);
+    Napi::FunctionReference& func = functions.at(*fidptr);
+    return func.Value();
+}
+
+Napi::Value Shared::ToInteger(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), lua_tointeger(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value Shared::ToNumber(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), lua_tonumber(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value Shared::ToString(const Napi::CallbackInfo& info) {
+    return Napi::String::New(info.Env(), lua_tolstring(L, GetArg<int>(info, 0), NULL));
+}
+
+Napi::Value Shared::Type(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), lua_type(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value Shared::TypeName(const Napi::CallbackInfo& info) {
+    return Napi::String::New(info.Env(), lua_typename(L, GetArg<int>(info, 0)));
+}
+
+Napi::Value Shared::GetUpValue(const Napi::CallbackInfo& info) {
+    return Napi::String::New(info.Env(), lua_getupvalue(L, GetArg<int>(info, 0), GetArg<int>(info, 1)));
+}
+
+Napi::Value Shared::SetUpValue(const Napi::CallbackInfo& info) {
+    return Napi::String::New(info.Env(), lua_setupvalue(L, GetArg<int>(info, 0), GetArg<int>(info, 1)));
+}
+
 int gchook(lua_State* L) {
     size_findex fid = *(size_findex*)lua_touserdata(L, -1);
-    LuaState* state = get_js_state(L);
+    Shared* state = get_js_state(L);
     Napi::FunctionReference& func = state->functions.at(fid);
     func.Unref();
     state->freelist.push_back(fid);
@@ -175,12 +271,7 @@ LuaState::LuaState(const Napi::CallbackInfo& info) : Napi::ObjectWrap<LuaState>(
     lua_pushlightuserdata(L, (void*)this);
     lua_settable(L, LUA_REGISTRYINDEX);
 
-    //clua_initstate
     luaL_newmetatable(L, MT_JSFUNCTION);
-
-    // lua_pushliteral(L, "__call");
-    // lua_pushcfunction(L, &callback_function);
-    // lua_settable(L,-3);
 
     lua_pushliteral(L, "__gc");
     lua_pushcfunction(L, &gchook);
@@ -195,63 +286,11 @@ LuaState::~LuaState() {
     }
 }
 
-void LuaState::OpenLibs(const Napi::CallbackInfo& info) {
+void Shared::OpenLibs(const Napi::CallbackInfo& info) {
     luaL_openlibs(L);
 }
 
-void LuaState::SetField(const Napi::CallbackInfo& info) {
-    lua_setfield(L, GetArg<int>(info, 0), GetArg<const char*>(info, 1));
-}
-
-void LuaState::PushString(const Napi::CallbackInfo& info) {
-    lua_pushstring(L, GetArg<const char*>(info, 0));
-}
-
-Napi::Value LuaState::ToInteger(const Napi::CallbackInfo& info) {
-    int value = lua_tointeger(L, GetArg<int>(info, 0));
-    return Napi::Number::New(info.Env(), value);
-}
-
-void LuaState::PushInteger(const Napi::CallbackInfo& info) {
-    lua_pushinteger(L, GetArg<int>(info, 0));
-}
-
-size_findex LuaState::register_function(Napi::Function function) {
-    size_findex index;
-    if (freelist.size() > 0) {
-        index = freelist.back();
-        freelist.pop_back();
-        functions.at(index) = Napi::Persistent(function);
-    } else {
-        index = functions.size();
-        functions.push_back(Napi::Persistent(function));
-    }
-    return index;
-}
-
-void LuaState::push_js_closure(Napi::Function function, int n) {
-    size_findex* fidptr = (size_findex*)lua_newuserdata(L, sizeof(size_findex));
-    *fidptr = register_function(function);
-    luaL_getmetatable(L, MT_JSFUNCTION);
-    lua_setmetatable(L, -2);
-    if (n > 0) lua_insert(L, -n-1);
-    lua_pushcclosure(L, callback_function, 1 + n);
-}
-
-void LuaState::Register(const Napi::CallbackInfo& info) {
-    push_js_closure(info[1].As<Napi::Function>(), 0);
-    lua_setglobal(L, GetArg<const char*>(info, 0));
-}
-
-void LuaState::PushJSFunction(const Napi::CallbackInfo& info) {
-    push_js_closure(info[0].As<Napi::Function>(), 0);
-}
-
-void LuaState::PushJSClosure(const Napi::CallbackInfo& info) {
-    push_js_closure(info[0].As<Napi::Function>(), GetArg<int>(info, 1));
-}
-
-Napi::Value LuaState::DoString(const Napi::CallbackInfo& info) {
+Napi::Value Shared::DoString(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     int r;
     if (r = luaL_loadstring(L, GetArg<const char*>(info, 0)), r != 0) {
@@ -263,7 +302,7 @@ Napi::Value LuaState::DoString(const Napi::CallbackInfo& info) {
     return env.Null();
 }
 
-Napi::Value LuaState::DoFile(const Napi::CallbackInfo& info) {
+Napi::Value Shared::DoFile(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     int r;
     if (r = luaL_loadfile(L, GetArg<const char*>(info, 0)), r != 0) {
@@ -275,7 +314,7 @@ Napi::Value LuaState::DoFile(const Napi::CallbackInfo& info) {
     return env.Null();
 }
 
-Napi::Value LuaState::Call(const Napi::CallbackInfo& info) {
+Napi::Value Shared::Call(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     lua_call(L, GetArg<int>(info, 0), GetArg<int>(info, 1));
     return env.Null();
