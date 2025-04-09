@@ -6,8 +6,10 @@
 
 #if LUA_VERSION_NUM == 501
 #include "versions/51.cc"
-#elif LUA_VERSION_NUM == 504
-#include "versions/54.cc"
+// #elif LUA_VERSION_NUM == 504
+// #include "versions/54.cc"
+#else
+#error "Configured lua version is not supported"
 #endif
 
 

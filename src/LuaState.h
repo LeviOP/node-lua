@@ -23,8 +23,7 @@ inline int GetArg<int>(const Napi::CallbackInfo &info, size_t index) {
 }
 
 template <>
-inline const char *GetArg<const char *>(const Napi::CallbackInfo &info,
-                                        size_t index) {
+inline const char *GetArg<const char *>(const Napi::CallbackInfo &info, size_t index) {
     static thread_local std::string temp;
     temp = info[index].As<Napi::String>().Utf8Value();
     return temp.c_str();
@@ -40,8 +39,9 @@ public:
     size_findex register_function(Napi::Function function);
     void callback();
 
-    Napi::Value CallEx(int nargs, int nresults, bool catchError);
+    // Napi::Value CallEx(int nargs, int nresults, bool catchError);
 
+    // Napi::Value AtPanic(const Napi::CallbackInfo &info);
     Napi::Value Call(const Napi::CallbackInfo &info);
     Napi::Value CheckStack(const Napi::CallbackInfo &info);
     void Close(const Napi::CallbackInfo &info);
@@ -67,6 +67,7 @@ public:
     Napi::Value IsThread(const Napi::CallbackInfo &info);
     Napi::Value IsUserdata(const Napi::CallbackInfo &info);
     // Napi::Value Load(const Napi::CallbackInfo &info);
+    // Napi::Value NewState(const Napi::CallbackInfo &info);
     void NewTable(const Napi::CallbackInfo &info);
     // void NewThread(const Napi::CallbackInfo &info);
     // void NewUserdata(const Napi::CallbackInfo &info);

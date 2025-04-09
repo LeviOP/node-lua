@@ -6,9 +6,10 @@ public:
     ~LuaState();
 
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
+
     Napi::Value Equal(const Napi::CallbackInfo &info);
     Napi::Value GC(const Napi::CallbackInfo &info);
-    void GetFEnv(const Napi::CallbackInfo &info);
+    void GetFenv(const Napi::CallbackInfo &info);
     void GetField(const Napi::CallbackInfo &info);
     void GetGlobal(const Napi::CallbackInfo &info);
     void GetTable(const Napi::CallbackInfo &info);
@@ -24,21 +25,69 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     // This method is used to hook the accessor and method callbacks
     Napi::Function func = DefineClass(env, "LuaState", {
         InstanceMethod("call", &LuaState::Call),
+        InstanceMethod("checkStack", &LuaState::CheckStack),
+        InstanceMethod("close", &LuaState::Close),
+        InstanceMethod("concat", &LuaState::Concat),
         InstanceMethod("createTable", &LuaState::CreateTable),
-        InstanceMethod("setField", &LuaState::SetField),
-        InstanceMethod("getField", &LuaState::GetField),
-        InstanceMethod("getGlobal", &LuaState::GetGlobal),
-        InstanceMethod("openLibs", &LuaState::OpenLibs),
-        InstanceMethod("pushString", &LuaState::PushString),
-        InstanceMethod("doString", &LuaState::DoString),
-        InstanceMethod("doFile", &LuaState::DoFile),
+        InstanceMethod("error", &LuaState::Error),
+        InstanceMethod("getMetatable", &LuaState::GetMetatable),
+        InstanceMethod("getTop", &LuaState::GetTop),
+        InstanceMethod("insert", &LuaState::Insert),
+        InstanceMethod("isBoolean", &LuaState::IsBoolean),
+        InstanceMethod("isJSFunction", &LuaState::IsJSFunction),
+        InstanceMethod("isFunction", &LuaState::IsFunction),
+        InstanceMethod("isLightUserdata", &LuaState::IsLightUserdata),
+        InstanceMethod("isNil", &LuaState::IsNil),
+        InstanceMethod("isNone", &LuaState::IsNone),
+        InstanceMethod("isNoneOrNil", &LuaState::IsNoneOrNil),
+        InstanceMethod("isNumber", &LuaState::IsNumber),
+        InstanceMethod("isString", &LuaState::IsString),
+        InstanceMethod("isTable", &LuaState::IsTable),
+        InstanceMethod("isThread", &LuaState::IsThread),
+        InstanceMethod("isUserdata", &LuaState::IsUserdata),
         InstanceMethod("newTable", &LuaState::NewTable),
+        InstanceMethod("next", &LuaState::Next),
+        InstanceMethod("pop", &LuaState::Pop),
+        InstanceMethod("pushBoolean", &LuaState::PushBoolean),
+        InstanceMethod("pushJSClosure", &LuaState::PushJSClosure),
         InstanceMethod("pushJSFunction", &LuaState::PushJSFunction),
         InstanceMethod("pushInteger", &LuaState::PushInteger),
-        InstanceMethod("toInteger", &LuaState::ToInteger),
+        InstanceMethod("pushString", &LuaState::PushString),
+        InstanceMethod("pushValue", &LuaState::PushValue),
+        InstanceMethod("rawEqual", &LuaState::RawEqual),
+        InstanceMethod("rawSet", &LuaState::RawSet),
+        InstanceMethod("register", &LuaState::Register),
+        InstanceMethod("remove", &LuaState::Remove),
+        InstanceMethod("replace", &LuaState::Replace),
+        InstanceMethod("resume", &LuaState::Resume),
+        InstanceMethod("setField", &LuaState::SetField),
+        InstanceMethod("setGlobal", &LuaState::SetGlobal),
+        InstanceMethod("setMetatable", &LuaState::SetMetatable),
+        InstanceMethod("setTable", &LuaState::SetTable),
+        InstanceMethod("setTop", &LuaState::SetTop),
+        InstanceMethod("status", &LuaState::Status),
+        InstanceMethod("toBoolean", &LuaState::ToBoolean),
         InstanceMethod("toJSFunction", &LuaState::ToJSFunction),
-        InstanceMethod("isNumber", &LuaState::IsNumber),
-        InstanceMethod("register", &LuaState::Register)
+        InstanceMethod("toInteger", &LuaState::ToInteger),
+        InstanceMethod("toNumber", &LuaState::ToNumber),
+        InstanceMethod("toString", &LuaState::ToString),
+        InstanceMethod("type", &LuaState::Type),
+        InstanceMethod("typeName", &LuaState::TypeName),
+        InstanceMethod("getUpValue", &LuaState::GetUpValue),
+        InstanceMethod("setUpValue", &LuaState::SetUpValue),
+
+        InstanceMethod("equal", &LuaState::Equal),
+        InstanceMethod("gc", &LuaState::GC),
+        InstanceMethod("getFenv", &LuaState::GetFenv),
+        InstanceMethod("getField", &LuaState::GetField),
+        InstanceMethod("getGlobal", &LuaState::GetGlobal),
+        InstanceMethod("getTable", &LuaState::GetTable),
+        InstanceMethod("lessThan", &LuaState::LessThan),
+        InstanceMethod("objLen", &LuaState::ObjLen),
+        InstanceMethod("rawGet", &LuaState::RawGet),
+        InstanceMethod("rawGeti", &LuaState::RawGeti),
+        InstanceMethod("rawSeti", &LuaState::RawSeti),
+        InstanceMethod("setFenv", &LuaState::SetFenv)
     });
 
     Napi::FunctionReference* constructor = new Napi::FunctionReference();
@@ -70,7 +119,7 @@ Napi::Value LuaState::GC(const Napi::CallbackInfo& info) {
     return Napi::Number::New(info.Env(), lua_gc(L, GetArg<int>(info, 0), GetArg<int>(info, 1)));
 }
 
-void LuaState::GetFEnv(const Napi::CallbackInfo& info) {
+void LuaState::GetFenv(const Napi::CallbackInfo& info) {
     lua_getfenv(L, GetArg<int>(info, 0));
 }
 
