@@ -249,6 +249,10 @@ Napi::Value Shared::TypeName(const Napi::CallbackInfo& info) {
     return Napi::String::New(info.Env(), lua_typename(L, GetArg<int>(info, 0)));
 }
 
+Napi::Value Shared::UpValueIndex(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), lua_upvalueindex(GetArg<int>(info, 0)));
+}
+
 Napi::Value Shared::GetUpValue(const Napi::CallbackInfo& info) {
     return Napi::String::New(info.Env(), lua_getupvalue(L, GetArg<int>(info, 0), GetArg<int>(info, 1)));
 }
@@ -337,6 +341,7 @@ Napi::Value Shared::Call(const Napi::CallbackInfo& info) {
 // Initialize native add-on
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
     LuaState::Init(env, exports);
+    InitConstants(env, exports);
     return exports;
 }
 

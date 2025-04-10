@@ -73,6 +73,7 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("toString", &LuaState::ToString),
         InstanceMethod("type", &LuaState::Type),
         InstanceMethod("typeName", &LuaState::TypeName),
+        InstanceMethod("upValueIndex", &LuaState::UpValueIndex), // Not really a method, but I don't know where else to put it
         InstanceMethod("getUpValue", &LuaState::GetUpValue),
         InstanceMethod("setUpValue", &LuaState::SetUpValue),
 
@@ -87,7 +88,10 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("rawGet", &LuaState::RawGet),
         InstanceMethod("rawGeti", &LuaState::RawGeti),
         InstanceMethod("rawSeti", &LuaState::RawSeti),
-        InstanceMethod("setFenv", &LuaState::SetFenv)
+        InstanceMethod("setFenv", &LuaState::SetFenv),
+
+        InstanceMethod("openLibs", &LuaState::OpenLibs),
+        InstanceMethod("doFile", &LuaState::DoFile),
     });
 
     Napi::FunctionReference* constructor = new Napi::FunctionReference();
@@ -109,6 +113,53 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     env.SetInstanceData<Napi::FunctionReference>(constructor);
 
     return exports;
+}
+
+void InitConstants(Napi::Env env, Napi::Object exports) {
+    Napi::Object luaConstants = Napi::Object::New(env);
+    luaConstants.Set("VERSION", Napi::String::New(env, LUA_VERSION));
+    luaConstants.Set("VERSION_NUM", Napi::Number::New(env, LUA_VERSION_NUM));
+    luaConstants.Set("COPYRIGHT", Napi::String::New(env, LUA_COPYRIGHT));
+    luaConstants.Set("AUTHORS", Napi::String::New(env, LUA_AUTHORS));
+
+    luaConstants.Set("MULTRET", Napi::Number::New(env, LUA_MULTRET));
+
+    luaConstants.Set("REGISTRYINDEX", Napi::Number::New(env, LUA_REGISTRYINDEX));
+    luaConstants.Set("ENVIRONINDEX", Napi::Number::New(env, LUA_ENVIRONINDEX));
+    luaConstants.Set("GLOBALSINDEX", Napi::Number::New(env, LUA_GLOBALSINDEX));
+
+    luaConstants.Set("OK", Napi::Number::New(env, LUA_OK));
+    luaConstants.Set("YIELD", Napi::Number::New(env, LUA_YIELD));
+    luaConstants.Set("ERRRUN", Napi::Number::New(env, LUA_ERRRUN));
+    luaConstants.Set("ERRSYNTAX", Napi::Number::New(env, LUA_ERRSYNTAX));
+    luaConstants.Set("ERRMEM", Napi::Number::New(env, LUA_ERRMEM));
+    luaConstants.Set("ERRERR", Napi::Number::New(env, LUA_ERRERR));
+
+    luaConstants.Set("TNONE", Napi::Number::New(env, LUA_TNONE));
+    luaConstants.Set("TNIL", Napi::Number::New(env, LUA_TNIL));
+    luaConstants.Set("TBOOLEAN", Napi::Number::New(env, LUA_TBOOLEAN));
+    luaConstants.Set("TLIGHTUSERDATA", Napi::Number::New(env, LUA_TLIGHTUSERDATA));
+    luaConstants.Set("TNUMBER", Napi::Number::New(env, LUA_TNUMBER));
+    luaConstants.Set("TNUMBER", Napi::Number::New(env, LUA_TNUMBER));
+    luaConstants.Set("TSTRING", Napi::Number::New(env, LUA_TSTRING));
+    luaConstants.Set("TTABLE", Napi::Number::New(env, LUA_TTABLE));
+    luaConstants.Set("TFUNCTION", Napi::Number::New(env, LUA_TFUNCTION));
+    luaConstants.Set("TUSERDATA", Napi::Number::New(env, LUA_TUSERDATA));
+    luaConstants.Set("TTHREAD", Napi::Number::New(env, LUA_TTHREAD));
+
+    luaConstants.Set("MINSTACK", Napi::Number::New(env, LUA_MINSTACK));
+
+    luaConstants.Set("GCSTOP", Napi::Number::New(env, LUA_GCSTOP));
+    luaConstants.Set("GCRESTART", Napi::Number::New(env, LUA_GCRESTART));
+    luaConstants.Set("GCCOLLECT", Napi::Number::New(env, LUA_GCCOLLECT));
+    luaConstants.Set("GCCOUNT", Napi::Number::New(env, LUA_GCCOUNT));
+    luaConstants.Set("GCCOUNTB", Napi::Number::New(env, LUA_GCCOUNTB));
+    luaConstants.Set("GCSTEP", Napi::Number::New(env, LUA_GCSTEP));
+    luaConstants.Set("GCSETPAUSE", Napi::Number::New(env, LUA_GCSETPAUSE));
+    luaConstants.Set("GCSETSTEPMUL", Napi::Number::New(env, LUA_GCSETSTEPMUL));
+    luaConstants.Set("GCISRUNNING", Napi::Number::New(env, LUA_GCISRUNNING));
+
+    exports.Set("LUA", luaConstants);
 }
 
 Napi::Value LuaState::Equal(const Napi::CallbackInfo& info) {

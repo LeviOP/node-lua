@@ -107,6 +107,7 @@ public:
     // Napi::Value ToUserdata(const Napi::CallbackInfo &info);
     Napi::Value Type(const Napi::CallbackInfo &info);
     Napi::Value TypeName(const Napi::CallbackInfo &info);
+    Napi::Value UpValueIndex(const Napi::CallbackInfo &info);
     // void XMove(const Napi::CallbackInfo &info);
     // void Yield(const Napi::CallbackInfo &info);
     // void GetHook(const Napi::CallbackInfo &info);
