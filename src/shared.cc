@@ -1,5 +1,4 @@
 #include "LuaState.h"
-#include <csignal>
 
 #if defined(LUAJIT_VERSION)
 
