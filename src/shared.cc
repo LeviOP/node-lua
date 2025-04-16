@@ -1,4 +1,5 @@
 #include "LuaState.h"
+#include <csignal>
 
 #if defined(LUAJIT_VERSION)
 
@@ -134,7 +135,7 @@ int callback_function(lua_State* L) {
     size_findex* fidptr = (size_findex*)lua_touserdata(L, lua_upvalueindex(1));
     LuaState* state = get_js_state(L);
     Napi::FunctionReference& func = state->functions.at(*fidptr);
-    int args = func.Call({ state->Value() }).As<Napi::Number>().Int32Value();
+    int args = func.Call({ state->Value() }).ToNumber().Int32Value();
     return args;
 }
 
