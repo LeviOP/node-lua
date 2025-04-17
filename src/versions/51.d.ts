@@ -35,6 +35,8 @@ export interface LuaConstants {
     GCISRUNNING: number;
 }
 
+export type JSFunction = (L: LuaState) => number;
+
 export class LuaState {
     call(nargs: number, nresults: number): void;
     checkStack(size: number): boolean;
@@ -61,14 +63,14 @@ export class LuaState {
     next(index: number): void;
     pop(n: number): void;
     pushBoolean(value: boolean): void;
-    pushJSClosure(func: Function, n: number): void;
-    pushJSFunction(func: Function): void;
+    pushJSClosure(func: JSFunction, n: number): void;
+    pushJSFunction(func: JSFunction): void;
     pushInteger(value: number): void;
     pushString(value: string): void;
     pushValue(index: number): void;
     rawEqual(index1: number, index2: number): boolean;
     rawSet(index: number): void;
-    register(func: Function): void;
+    register(func: JSFunction): void;
     remove(index: number): void;
     replace(index: number): void;
     resume(index: number): void;
@@ -79,7 +81,7 @@ export class LuaState {
     setTop(index: number): void;
     status(): number;
     toBoolean(index: number): boolean;
-    toJSFunction(index: number): Function | null;
+    toJSFunction(index: number): JSFunction | null;
     toInteger(index: number): number;
     toNumber(index: number): number;
     toString(index: number): string;
