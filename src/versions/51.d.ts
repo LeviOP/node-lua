@@ -100,6 +100,10 @@ export class LuaState {
     rawGeti(index: number, i: number): void;
     rawSeti(index: number, i: number): void;
     setFenv(index: number): void;
+
+    doString(str: string): string | null;
+    doFile(filename: string): string | null;
+    openLibs(): void;
 }
 
 // Export the LUA constants object
