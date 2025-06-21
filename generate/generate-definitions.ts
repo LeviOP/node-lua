@@ -126,7 +126,9 @@ function parseParagraph(nodeList: NodeListOf<ChildNode> | [Node]): string {
     }).join("");
 }
 
-const html = await readFile("manual.html", { encoding: "latin1" });
+const response = await fetch("https://www.lua.org/manual/5.1/manual.html");
+const html = await response.text();
+// const html = await readFile("manual.html", { encoding: "latin1" });
 const { window } = new JSDOM(html, { url: "https://www.lua.org/manual/5.1/manual.html" });
 
 const elements = window.document.body.children;
