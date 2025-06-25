@@ -143,6 +143,7 @@ const NAMEMAP = new Map<string, string>([
 const IGNORELIST = [
     "lua_cpcall",
     "lua_dump",
+    "lua_error",
     "lua_getallocf",
     "lua_pushlightuserdata",
     "lua_setallocf",

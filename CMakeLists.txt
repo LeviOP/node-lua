@@ -8,6 +8,7 @@ set (CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project (node-lua)
 
 add_definitions(-DNAPI_VERSION=8)
+add_definitions(-DNAPI_DISABLE_CPP_EXCEPTIONS)
 
 set(LUA_PKG_NAME "luajit" CACHE STRING "The name of the pkg-config module for Lua")
 

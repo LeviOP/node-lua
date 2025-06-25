@@ -45,6 +45,7 @@ public:
     std::vector<Napi::FunctionReference> functions;
     std::vector<size_findex> freelist;
     lua_State *L;
+    Napi::Reference<Napi::Symbol> errorSymbol;
 
     void push_js_closure(Napi::Function function, int n);
     size_findex register_function(Napi::Function function);
@@ -54,6 +55,7 @@ public:
     Napi::Value IsJSFunction(const Napi::CallbackInfo& info);
     Napi::Value ToJSFunction(const Napi::CallbackInfo& info);
     void Register(const Napi::CallbackInfo& info);
+    void Error(const Napi::CallbackInfo& info);
 
     #include "methods.h"
 };
@@ -89,6 +91,8 @@ LuaState::LuaState(const Napi::CallbackInfo& info) : Napi::ObjectWrap<LuaState>(
     lua_settable(L, -3);
 
     lua_pop(L, 1);
+
+    errorSymbol = Napi::Persistent(Napi::Symbol::New(info.Env()));
 }
 
 LuaState::~LuaState() {
@@ -101,7 +105,19 @@ int callback_function(lua_State* L) {
     size_findex* fidptr = (size_findex*)lua_touserdata(L, lua_upvalueindex(1));
     LuaState* state = get_js_state(L);
     Napi::FunctionReference& func = state->functions.at(*fidptr);
-    int args = func.Call({ state->Value() }).ToNumber().Int32Value();
+    // We have to get handle on env before calling function or else it is destroyed
+    Napi::Env env = func.Env();
+    Napi::Value result = func.Call({ state->Value() });
+    if (env.IsExceptionPending()) {
+        napi_value rawValue;
+        napi_get_and_clear_last_exception(env, &rawValue);
+        Napi::Value value = Napi::Value(env, rawValue);
+        if (!value.StrictEquals(state->errorSymbol.Value())) {
+            lua_pushstring(L, value.ToString().Utf8Value().c_str());
+        }
+        lua_error(L);
+    }
+    int args = result.ToNumber().Int32Value();
     return args;
 }
 
@@ -152,9 +168,14 @@ void LuaState::Register(const Napi::CallbackInfo& info) {
     lua_setglobal(L, GetArg<const char*>(info, 0));
 }
 
+void LuaState::Error(const Napi::CallbackInfo& info) {
+    napi_throw(info.Env(), errorSymbol.Value());
+}
+
 Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     // This method is used to hook the accessor and method callbacks
     Napi::Function func = DefineClass(env, "LuaState", {
+        InstanceMethod("error", &LuaState::Error),
         InstanceMethod("pushJSClosure", &LuaState::PushJSClosure),
         InstanceMethod("pushJSFunction", &LuaState::PushJSFunction),
         InstanceMethod("register", &LuaState::Register),
