@@ -46,6 +46,7 @@ public:
     std::vector<size_findex> freelist;
     lua_State *L;
     Napi::Reference<Napi::Symbol> errorSymbol;
+    bool isClosed = false;
 
     void push_js_closure(Napi::Function function, int n);
     size_findex register_function(Napi::Function function);
@@ -56,6 +57,7 @@ public:
     Napi::Value ToJSFunction(const Napi::CallbackInfo& info);
     void Register(const Napi::CallbackInfo& info);
     void Error(const Napi::CallbackInfo& info);
+    void Close(const Napi::CallbackInfo& info);
 
     #include "methods.h"
 };
@@ -96,7 +98,7 @@ LuaState::LuaState(const Napi::CallbackInfo& info) : Napi::ObjectWrap<LuaState>(
 }
 
 LuaState::~LuaState() {
-    if (L) {
+    if (L && !isClosed) {
         lua_close(L);
     }
 }
@@ -172,6 +174,35 @@ void LuaState::Error(const Napi::CallbackInfo& info) {
     napi_throw(info.Env(), errorSymbol.Value());
 }
 
+void Stub(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::Error::New(env, "Attempting to call method on a closed Lua state!").ThrowAsJavaScriptException();
+}
+
+void LuaState::Close(const Napi::CallbackInfo& info) {
+    lua_close(L);
+    isClosed = true;
+
+    Napi::Object self = info.This().As<Napi::Object>();
+    Napi::Env env = info.Env();
+
+    Napi::Object global = env.Global();
+    Napi::Object object = global.Get("Object").As<Napi::Object>();
+    Napi::Function getPrototypeOf = object.Get("getPrototypeOf").As<Napi::Function>();
+    Napi::Function getOwnPropertyNames = object.Get("getOwnPropertyNames").As<Napi::Function>();
+    Napi::Function setPrototypeOf = object.Get("setPrototypeOf").As<Napi::Function>();
+
+    Napi::Object deadProto = Napi::Object::New(env);
+
+    Napi::Object originalProto = getPrototypeOf.Call({ self }).As<Napi::Object>();
+    Napi::Array methodNames = getOwnPropertyNames.Call({ originalProto }).As<Napi::Array>();
+    for (uint32_t i = 0; i < methodNames.Length(); ++i) {
+        deadProto.DefineProperty(Napi::PropertyDescriptor::Function(methodNames.Get(i).As<Napi::String>().Utf8Value().c_str(), Stub));
+    }
+
+    setPrototypeOf.Call({ self, deadProto });
+}
+
 Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     // This method is used to hook the accessor and method callbacks
     Napi::Function func = DefineClass(env, "LuaState", {
@@ -179,6 +210,7 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("pushJSClosure", &LuaState::PushJSClosure),
         InstanceMethod("pushJSFunction", &LuaState::PushJSFunction),
         InstanceMethod("register", &LuaState::Register),
+        InstanceMethod("close", &LuaState::Close),
         #include "properties.h"
     });
 
