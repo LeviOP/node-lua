@@ -1,3 +1,6 @@
 .cache
 build/
 node_modules/
+src/methods.h
+src/properties.h
+methods.json

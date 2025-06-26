@@ -1,4 +1,5 @@
-import { Method } from "./generate-definitions.js";
+import ts from "typescript";
+import { MethodDeclaration } from "./generate-declaration.js";
 
 const NAMEMAP = new Map<string, string>([
     ["lua_atpanic", "atPanic"],
@@ -189,141 +190,112 @@ const IGNORELIST = [
     "luaL_register"
 ];
 
-const HARDCODED: Method[] = [
+const HARDCODED: MethodDeclaration[] = [
     {
-        "fragment": "lua_pushcfunction",
-        "indicator": "[-0, +1, m]",
-        "cFunction": {
-            "declaration": {
-                "name": "lua_pushcfunction",
-                "type": "void",
-                "isPointer": false
-            },
-            "parameters": [
-                {
-                    "type": "lua_State",
-                    "name": "L",
-                    "isPointer": true
-                },
-                {
-                    "type": "lua_CFunction",
-                    "name": "f",
-                    "isPointer": false
-                }
-            ]
-        },
-        "jsName": "pushJSFunction",
-        "doc": "Pushes a JS function onto the stack. This function receives a JS function and pushes onto the stack a Lua value of type `function` that, when called, invokes the corresponding JS function.\n\nAny function to be registered in Lua must follow the correct protocol to receive its parameters and return its results (see [`lua_CFunction`](https://www.lua.org/manual/5.1/manual.html#lua_CFunction)).\n\n`lua_pushcfunction` is defined as a macro:\n```c\n     #define lua_pushcfunction(L,f)  lua_pushcclosure(L,f,0)\n```"
+        name: "pushJSFunction",
+        parameters: [
+            {
+                name: "fn",
+                type: ts.factory.createTypeReferenceNode("JSFunction")
+            }
+        ],
+        returnType: ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword),
+        jsdoc: {
+            fragment: "lua_pushcfunction",
+            indicator: "[-0, +1, m]",
+            doc: "Pushes a JS function onto the stack. This function receives a JS function and pushes onto the stack a Lua value of type `function` that, when called, invokes the corresponding JS function.\n\nAny function to be registered in Lua must follow the correct protocol to receive its parameters and return its results (see [`lua_CFunction`](https://www.lua.org/manual/5.1/manual.html#lua_CFunction)).\n\n`lua_pushcfunction` is defined as a macro:\n```c\n     #define lua_pushcfunction(L,f)  lua_pushcclosure(L,f,0)\n```"
+        }
     },
     {
-        "fragment": "lua_pushcclosure",
-        "indicator": "[-n, +1, m]",
-        "cFunction": {
-            "declaration": {
-                "name": "lua_pushcclosure",
-                "type": "void",
-                "isPointer": false
+        name: "pushJSClosure",
+        parameters: [
+            {
+                name: "fn",
+                type: ts.factory.createTypeReferenceNode("JSFunction")
             },
-            "parameters": [
-                {
-                    "type": "lua_State",
-                    "name": "L",
-                    "isPointer": true
-                },
-                {
-                    "type": "lua_CFunction",
-                    "name": "fn",
-                    "isPointer": false
-                },
-                {
-                    "type": "int",
-                    "name": "n",
-                    "isPointer": false
-                }
-            ]
-        },
-        "jsName": "pushJSClosure",
-        "doc": "Pushes a new JS closure onto the stack.\n\nWhen a JS function is created, it is possible to associate some values with it, thus creating a JS closure (see [§3.4](https://www.lua.org/manual/5.1/manual.html#3.4)); these values are then accessible to the function whenever it is called. To associate values with a JS function, first these values should be pushed onto the stack (when there are multiple values, the first value is pushed first). Then [`lua_pushcclosure`](https://www.lua.org/manual/5.1/manual.html#lua_pushcclosure) is called to create and push the JS function onto the stack, with the argument `n` telling how many values should be associated with the function. [`lua_pushcclosure`](https://www.lua.org/manual/5.1/manual.html#lua_pushcclosure) also pops these values from the stack.\n\nThe maximum value for `n` is 255."
+            {
+                name: "n",
+                type: ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
+            }
+        ],
+        returnType: ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword),
+        jsdoc: {
+            fragment: "lua_pushcclosure",
+            indicator: "[-n, +1, m]",
+            doc: "Pushes a new JS closure onto the stack.\n\nWhen a JS function is created, it is possible to associate some values with it, thus creating a JS closure (see [§3.4](https://www.lua.org/manual/5.1/manual.html#3.4)); these values are then accessible to the function whenever it is called. To associate values with a JS function, first these values should be pushed onto the stack (when there are multiple values, the first value is pushed first). Then [`lua_pushcclosure`](https://www.lua.org/manual/5.1/manual.html#lua_pushcclosure) is called to create and push the JS function onto the stack, with the argument `n` telling how many values should be associated with the function. [`lua_pushcclosure`](https://www.lua.org/manual/5.1/manual.html#lua_pushcclosure) also pops these values from the stack.\n\nThe maximum value for `n` is 255."
+        }
     },
     {
-        "fragment": "lua_iscfunction",
-        "indicator": "[-0, +0, -]",
-        "cFunction": {
-            "declaration": {
-                "name": "lua_iscfunction",
-                "type": "int",
-                "isPointer": false
-            },
-            "parameters": [
-                {
-                    "type": "lua_State",
-                    "name": "L",
-                    "isPointer": true
-                },
-                {
-                    "type": "int",
-                    "name": "index",
-                    "isPointer": false
-                }
-            ]
-        },
-        "jsName": "isJSFunction",
-        "doc": "Returns 1 if the value at the given acceptable index is a JS function, and 0 otherwise."
+        name: "isJSFunction",
+        parameters: [
+            {
+                name: "index",
+                type: ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
+            }
+        ],
+        returnType: ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword),
+        jsdoc: {
+            fragment: "lua_iscfunction",
+            indicator: "[-0, +0, -]",
+            doc: "Returns 1 if the value at the given acceptable index is a JS function, and 0 otherwise."
+        }
     },
     {
-        "fragment": "lua_tocfunction",
-        "indicator": "[-0, +0, -]",
-        "cFunction": {
-            "declaration": {
-                "name": "lua_iscfunction",
-                "type": "int",
-                "isPointer": false
-            },
-            "parameters": [
-                {
-                    "type": "lua_State",
-                    "name": "L",
-                    "isPointer": true
-                },
-                {
-                    "type": "int",
-                    "name": "index",
-                    "isPointer": false
-                }
-            ]
-        },
-        "jsName": "toJSFunction",
-        "doc": "Converts a value at the given acceptable index to a JS function. That value must be a JS function; otherwise, returns `NULL`."
+        name: "toJSFunction",
+        parameters: [
+            {
+                name: "index",
+                type: ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
+            }
+        ],
+        returnType: ts.factory.createUnionTypeNode([
+            ts.factory.createTypeReferenceNode("JSFunction"),
+            ts.factory.createLiteralTypeNode(ts.factory.createToken(ts.SyntaxKind.NullKeyword))
+        ]),
+        jsdoc: {
+            fragment: "lua_tocfunction",
+            indicator: "[-0, +0, -]",
+            doc: "Converts a value at the given acceptable index to a JS function. That value must be a JS function; otherwise, returns `NULL`."
+        }
     },
     {
-        "fragment": "lua_register",
-        "indicator": "[-0, +0, -]",
-        "cFunction": {
-            "declaration": {
-                "name": "lua_register",
-                "type": "int",
-                "isPointer": false
+        name: "register",
+        parameters: [
+            {
+                name: "name",
+                type: ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
             },
-            "parameters": [
-                {
-                    "type": "lua_State",
-                    "name": "L",
-                    "isPointer": true
-                },
-                {
-                    "type": "char",
-                    "name": "name",
-                    "isPointer": true
-                },
-                {
-                    "type": "lua_CFunction",
-                    "name": "f",
-                    "isPointer": false
-                }
-            ]
-        },
-        "jsName": "register",
-        "doc": "Sets the JS function `f` as the new value of global `name`. It is defined as a macro:\n```c\n    #define lua_register(L,n,f) \\\n           (lua_pushcfunction(L, f), lua_setglobal(L, n))\n```"
+            {
+                name: "f",
+                type: ts.factory.createTypeReferenceNode("JSFunction")
+            }
+        ],
+        returnType: ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword),
+        jsdoc: {
+            fragment: "lua_register",
+            indicator: "[-0, +0, -]",
+            doc: "Sets the JS function `f` as the new value of global `name`. It is defined as a macro:\n```c\n    #define lua_register(L,n,f) \\\n           (lua_pushcfunction(L, f), lua_setglobal(L, n))\n```"
+        }
+    },
+    {
+        name: "error",
+        parameters: [],
+        returnType: ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword),
+        jsdoc: {
+            fragment: "lua_error",
+            indicator: "[-1, +0, v]",
+            doc: "Generates a Lua error. The error message (which can actually be a Lua value of any type) must be on the stack top. This function does a long jump, and therefore never returns. (see [`luaL_error`](https://www.lua.org/manual/5.1/manual.html#luaL_error))."
+        }
+    },
+    {
+        name: "close",
+        parameters: [],
+        returnType: ts.factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword),
+        jsdoc: {
+            fragment: "lua_close",
+            indicator: "[-0, +0, -]",
+            doc: "Destroys all objects in the given Lua state (calling the corresponding garbage-collection metamethods, if any) and frees all dynamic memory used by this state. On several platforms, you may not need to call this function, because all resources are naturally released when the host program ends. On the other hand, long-running programs, such as a daemon or a web server, might need to release states as soon as they are not needed, to avoid growing too large."
+        }
     }
 ];
 

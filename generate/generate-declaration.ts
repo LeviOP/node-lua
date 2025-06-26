@@ -4,7 +4,39 @@ import { Method } from "./generate-definitions.js";
 import { HARDCODED } from "./constants.js";
 
 const methodsRaw = await readFile("./methods.json", { encoding: "utf-8" });
-const methods = [...(JSON.parse(methodsRaw) as Method[]), ...HARDCODED];
+const methods: Method[] = JSON.parse(methodsRaw) as Method[];
+
+interface Parameter {
+    name: string;
+    type: ts.TypeNode;
+}
+
+interface JSDoc {
+    fragment: string;
+    indicator: string;
+    doc: string;
+}
+
+export interface MethodDeclaration {
+    name: string;
+    parameters: Parameter[];
+    returnType: ts.TypeNode;
+    jsdoc: JSDoc;
+}
+
+const methodDeclarations: MethodDeclaration[] = [...methods.map<MethodDeclaration>((method) => ({
+    name: method.jsName,
+    parameters: method.cFunction.parameters.slice(1).map((parameter) => ({
+        name: parameter.name,
+        type: cTypeToTypeNode(parameter.type)
+    })),
+    returnType: cTypeToTypeNode(method.cFunction.declaration.type),
+    jsdoc: {
+        fragment: method.fragment,
+        indicator: method.indicator,
+        doc: method.doc
+    }
+})), ...HARDCODED]
 
 function stringToJSDoc(str: string) {
     return ("*\n" + str).split("\n").join("\n * ") + "\n ";
@@ -53,16 +85,16 @@ const classDeclaration = ts.factory.createClassDeclaration(
     "LuaState",
     [],
     [],
-    methods.map((method) => ts.addSyntheticLeadingComment(ts.factory.createMethodDeclaration(
+    methodDeclarations.map((method) => ts.addSyntheticLeadingComment(ts.factory.createMethodDeclaration(
         undefined,
         undefined,
-        method.jsName,
+        method.name,
         undefined,
         undefined,
-        method.cFunction.parameters.slice(1).map((parameter) => ts.factory.createParameterDeclaration(undefined, undefined, parameter.name, undefined, cTypeToTypeNode(parameter.type))),
-        cTypeToTypeNode(method.cFunction.declaration.type),
+        method.parameters.map((parameter) => ts.factory.createParameterDeclaration(undefined, undefined, parameter.name, undefined, parameter.type)),
+        method.returnType,
         undefined
-    ), ts.SyntaxKind.MultiLineCommentTrivia, stringToJSDoc(`${method.fragment} -> ${method.indicator.replace(/([\[\]])/g, "\\$&")}\n\n${method.doc}\n@see {@link https://www.lua.org/manual/5.1/manual.html#${method.fragment}}`), true))
+    ), ts.SyntaxKind.MultiLineCommentTrivia, stringToJSDoc(`${method.jsdoc.fragment} -> ${method.jsdoc.indicator.replace(/([\[\]])/g, "\\$&")}\n\n${method.jsdoc.doc}\n@see {@link https://www.lua.org/manual/5.1/manual.html#${method.jsdoc.fragment}}`), true))
 );
 
 const sourceFile = ts.factory.createSourceFile(
