@@ -33,9 +33,9 @@ const methodDeclarations = methods.map((method) => (method.cFunction.declaration
 const properties = methods.map((method) => `InstanceMethod("${method.jsName}", &LuaState::${method.jsName.charAt(0).toUpperCase() + method.jsName.slice(1)})`).join(",\n");
 
 const constantsRaw = await readFile("./constants.json", { encoding: "utf-8" });
-const constants = JSON.parse(constantsRaw) as string[][];
+const constants = JSON.parse(constantsRaw) as string[];
 
-const constantsList = constants.map((constant) => `ADD_CONSTANT(${constant[0]});`).join("\n");
+const constantsList = constants.map((constant) => `ADD_CONSTANT(${constant});`).join("\n");
 
 writeFile("src/methods.h", methodDeclarations);
 writeFile("src/properties.h", properties);

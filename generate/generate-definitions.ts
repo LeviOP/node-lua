@@ -225,4 +225,4 @@ while (true) {
     });
 }
 
-await writeFile("methods.json", JSON.stringify(methods, null, 4));
+await writeFile("methods.json", JSON.stringify(methods, null, 4), { encoding: "utf-8" });

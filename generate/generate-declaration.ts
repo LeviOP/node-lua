@@ -97,14 +97,41 @@ const classDeclaration = ts.factory.createClassDeclaration(
     ), ts.SyntaxKind.MultiLineCommentTrivia, stringToJSDoc(`${method.jsdoc.fragment} -> ${method.jsdoc.indicator.replace(/([\[\]])/g, "\\$&")}\n\n${method.jsdoc.doc}\n@see {@link https://www.lua.org/manual/5.1/manual.html#${method.jsdoc.fragment}}`), true))
 );
 
+import { LUA } from "../index.js"
+
+function expressionFromValue(value: unknown): ts.Expression {
+    switch (typeof value) {
+        case "string":
+            return ts.factory.createStringLiteral(value);
+        case "number":
+            if (value < 0) {
+                return ts.factory.createPrefixUnaryExpression(
+                    ts.SyntaxKind.MinusToken,
+                    ts.factory.createNumericLiteral(value * -1)
+                );
+            }
+            return ts.factory.createNumericLiteral(value);
+        default:
+            throw Error("Unhandled enum value type: " + typeof value);
+    }
+}
+
+const members = Object.entries(LUA).map<ts.EnumMember>(([name, value]) =>
+    ts.factory.createEnumMember(name, expressionFromValue(value))
+);
+
+const enumDecl = ts.factory.createEnumDeclaration(
+    [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+    "LUA",
+    members
+);
+
 const sourceFile = ts.factory.createSourceFile(
-    [typeAliasDeclaration, classDeclaration],
+    [typeAliasDeclaration, classDeclaration, enumDecl],
     ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
     ts.NodeFlags.None
 );
 
 const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
 const result = printer.printFile(sourceFile);
-// result += printer.printNode(ts.EmitHint.Unspecified, typeAliasDeclaration, sourceFile);
-// result += printer.printNode(ts.EmitHint.Unspecified, classDeclaration, sourceFile);
 await writeFile("index.d.ts", result);

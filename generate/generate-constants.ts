@@ -15,10 +15,12 @@ pkgConfig.stdout.on("close", async () => {
 
     const files = ["lua.h", "lauxlib.h"];
 
-    const constants = (await Promise.all(files.map<Promise<string[][]>>(async (filename) => {
+    const constants = (await Promise.all(files.map<Promise<string[]>>(async (filename) => {
         // I don't think utf-8 is used at all in these files, but as long as it's ascii it's fine
         const file = await readFile(join(path, filename), { encoding: "utf-8" });
-        return Array.from(file.matchAll(/^#define\sLUA_([^\s]*)\s+([^\n]+)$/gm)).map(([_, name, value]) => ([name, value]));
+        const results = file.match(/(?<=^#define\sLUA_)[^\s]*(?=\s+[^\n]*$)/gm);
+        if (results === null) throw Error("Didn't find any define statements in " + filename + "!");
+        return results;
     }))).flat();
 
     await writeFile("constants.json", JSON.stringify(constants, null, 4), { encoding: "utf-8" });
