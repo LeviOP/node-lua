@@ -224,9 +224,27 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     return exports;
 }
 
+inline Napi::Value ToJsValue(Napi::Env env, const char* str) {
+    return Napi::String::New(env, str);
+}
+
+inline Napi::Value ToJsValue(Napi::Env env, int num) {
+    return Napi::Number::New(env, num);
+}
+
+#define ADD_CONSTANT(name) luaConstants.Set(#name, ToJsValue(env, LUA_##name));
+
+void InitConstants(Napi::Env env, Napi::Object exports) {
+    Napi::Object luaConstants = Napi::Object::New(env);
+
+    #include "constants.h"
+
+    exports.Set("LUA", luaConstants);
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
     LuaState::Init(env, exports);
-    // InitConstants(env, exports);
+    InitConstants(env, exports);
     return exports;
 }
 
