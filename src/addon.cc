@@ -224,6 +224,12 @@ Napi::Object LuaState::Init(Napi::Env env, Napi::Object exports) {
     return exports;
 }
 
+#ifdef lua_upvalueindex
+Napi::Value UpValueIndex(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), lua_upvalueindex(GetArg<int>(info, 0)));
+}
+#endif
+
 inline Napi::Value ToJsValue(Napi::Env env, const char* str) {
     return Napi::String::New(env, str);
 }
@@ -236,6 +242,10 @@ inline Napi::Value ToJsValue(Napi::Env env, int num) {
 
 void InitConstants(Napi::Env env, Napi::Object exports) {
     Napi::Object luaConstants = Napi::Object::New(env);
+
+#ifdef lua_upvalueindex
+    luaConstants.Set("upValueIndex", Napi::Function::New(env, UpValueIndex, "upValueIndex"));
+#endif
 
     #include "constants.h"
 

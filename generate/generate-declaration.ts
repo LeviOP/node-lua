@@ -78,7 +78,7 @@ const typeAliasDeclaration = ts.addSyntheticLeadingComment(ts.factory.createType
         ],
         ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
     )
-), ts.SyntaxKind.MultiLineCommentTrivia, stringToJSDoc("lua_CFunction\n\nType for JS functions.\n\nIn order to communicate properly with Lua, a JS function must use the following protocol, which defines the way parameters and results are passed: a JS function receives its arguments from Lua in its stack in direct order (the first argument is pushed first). So, when the function starts, `lua_gettop(L)` returns the number of arguments received by the function. The first argument (if any) is at index 1 and its last argument is at index `lua_gettop(L)` To return values to Lua, a JS function just pushes them onto the stack, in direct order (the first result is pushed first), and returns the number of results. Any other value in the stack below the results will be properly discarded by Lua. Like a Lua function, a JS function called by Lua can also return many results.\n\nAs an example, the following function receives a variable number of numerical arguments and returns their average and sum:\n```c\n     static int foo (lua_State *L) {\n       int n = lua_gettop(L);    // number of arguments\n       lua_Number sum = 0;\n       int i;\n       for (i = 1; i &lt;= n; i++) {\n         if (!lua_isnumber(L, i)) {\n           lua_pushstring(L, \"incorrect argument\");\n           lua_error(L);\n         }\n         sum += lua_tonumber(L, i);\n       }\n       lua_pushnumber(L, sum/n);        // first result\n       lua_pushnumber(L, sum);         // second result\n       return 2;                   // number of results\n     }\n```\n@see {@link https://www.lua.org/manual/5.1/manual.html#lua_CFunction}"), true);
+), ts.SyntaxKind.MultiLineCommentTrivia, stringToJSDoc("Type for JS functions.\n\nIn order to communicate properly with Lua, a JS function must use the following protocol, which defines the way parameters and results are passed: a JS function receives its arguments from Lua in its stack in direct order (the first argument is pushed first). So, when the function starts, `lua_gettop(L)` returns the number of arguments received by the function. The first argument (if any) is at index 1 and its last argument is at index `lua_gettop(L)` To return values to Lua, a JS function just pushes them onto the stack, in direct order (the first result is pushed first), and returns the number of results. Any other value in the stack below the results will be properly discarded by Lua. Like a Lua function, a JS function called by Lua can also return many results.\n\nAs an example, the following function receives a variable number of numerical arguments and returns their average and sum:\n```c\n     static int foo (lua_State *L) {\n       int n = lua_gettop(L);    // number of arguments\n       lua_Number sum = 0;\n       int i;\n       for (i = 1; i &lt;= n; i++) {\n         if (!lua_isnumber(L, i)) {\n           lua_pushstring(L, \"incorrect argument\");\n           lua_error(L);\n         }\n         sum += lua_tonumber(L, i);\n       }\n       lua_pushnumber(L, sum/n);        // first result\n       lua_pushnumber(L, sum);         // second result\n       return 2;                   // number of results\n     }\n```\n@see {@link https://www.lua.org/manual/5.1/manual.html#lua_CFunction}"), true);
 
 const classDeclaration = ts.factory.createClassDeclaration(
     [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
@@ -99,35 +99,55 @@ const classDeclaration = ts.factory.createClassDeclaration(
 
 import { LUA } from "../index.js"
 
-function expressionFromValue(value: unknown): ts.Expression {
+function typeNodeFromValue(value: unknown): ts.TypeNode {
     switch (typeof value) {
         case "string":
-            return ts.factory.createStringLiteral(value);
+            return ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(value));
         case "number":
             if (value < 0) {
-                return ts.factory.createPrefixUnaryExpression(
+                return ts.factory.createLiteralTypeNode(ts.factory.createPrefixUnaryExpression(
                     ts.SyntaxKind.MinusToken,
                     ts.factory.createNumericLiteral(value * -1)
-                );
+                ));
             }
-            return ts.factory.createNumericLiteral(value);
+            return ts.factory.createLiteralTypeNode(ts.factory.createNumericLiteral(value));
+        case "function":
+            if (value.name === "upValueIndex") return ts.factory.createFunctionTypeNode(
+                undefined,
+                [ts.factory.createParameterDeclaration(
+                    undefined,
+                    undefined,
+                    "index",
+                    undefined,
+                    ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
+                )],
+                ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
+            )
         default:
             throw Error("Unhandled enum value type: " + typeof value);
     }
 }
 
-const members = Object.entries(LUA).map<ts.EnumMember>(([name, value]) =>
-    ts.factory.createEnumMember(name, expressionFromValue(value))
-);
-
-const enumDecl = ts.factory.createEnumDeclaration(
+const constantsDeclaration = ts.factory.createVariableStatement(
     [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
-    "LUA",
-    members
+    ts.factory.createVariableDeclarationList([
+        ts.factory.createVariableDeclaration(
+            "LUA",
+            undefined,
+            ts.factory.createTypeLiteralNode(Object.entries(LUA).map(([name, value]) =>
+                ts.factory.createPropertySignature(
+                    undefined,
+                    name,
+                    undefined,
+                    typeNodeFromValue(value)
+                )
+            ))
+        )
+    ], ts.NodeFlags.Const)
 );
 
 const sourceFile = ts.factory.createSourceFile(
-    [typeAliasDeclaration, classDeclaration, enumDecl],
+    [typeAliasDeclaration, classDeclaration, constantsDeclaration],
     ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
     ts.NodeFlags.None
 );
